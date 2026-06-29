@@ -1,0 +1,35 @@
+{
+  "name": "magmaj",
+  "version": "0.1.0",
+  "description": "星韵麻友 — UniApp+TS 四端互通 项目（脚手架）",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "serve": "bun run server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.0.0",
+    "happy-dom": "^20.10.6",
+    "sass-embedded": "^1.100.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "vue": "^3.4.0"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.17.44",
+    "@colyseus/schema": "^4.0.27",
+    "@colyseus/ws-transport": "^0.17.13",
+    "@vue/runtime-dom": "^3.5.39",
+    "colyseus.js": "^0.16.22",
+    "pinia": "^2.0.0",
+    "pixi.js": "^8.19.0",
+    "vue-router": "^5.1.0"
+  }
+}
