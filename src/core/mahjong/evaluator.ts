@@ -1,6 +1,17 @@
+/**
+ * 日麻手牌分析器
+ * 负责检测役种、计算番数、符数、判断听牌和胡牌状态
+ */
 import { Tile, HandAnalysis, Meld } from '../../types/mahjong'
 import { calculateScore as calc } from './scoring'
 
+/**
+ * 分析选项配置
+ * isMenzen: 是否门清（无副露）
+ * isTsumo: 是否自摸
+ * seatWind: 玩家的自风
+ * roundWind: 当前场风
+ */
 type AnalyzeOptions = {
   isMenzen?: boolean
   isTsumo?: boolean
@@ -8,10 +19,17 @@ type AnalyzeOptions = {
   roundWind?: string
 }
 
+/**
+ * 生成牌的唯一标识键（用于统计计数）
+ */
 function tileKey(t: Tile) {
   return `${t.suit}:${t.rank}`
 }
 
+/**
+ * 统计手牌中各牌的数量
+ * 返回 Map: 牌标识 -> 数量
+ */
 function countTiles(tiles: Tile[]) {
   const map = new Map<string, number>()
   for (const t of tiles) {
@@ -20,11 +38,17 @@ function countTiles(tiles: Tile[]) {
   return map
 }
 
+/**
+ * 判断是否为幺九牌（1/9万筒索或字牌）
+ */
 function isTerminalOrHonor(t: Tile) {
   if (t.suit === 'honor') return true
   return t.rank === 1 || t.rank === 9
 }
 
+/**
+ * 获取所有可能的牌类型（共34种，用于听牌检测）
+ */
 function getAllTileTypes(): Tile[] {
   const tiles: Tile[] = []
   const suits = ['man', 'pin', 'sou'] as const
@@ -39,6 +63,10 @@ function getAllTileTypes(): Tile[] {
   return tiles
 }
 
+/**
+ * 递归检测标准牌型（4副面子+1对将牌）是否成立
+ * 使用回溯算法尝试所有可能的刻子/顺子组合
+ */
 function canCompleteStandardHand(counts: Map<string, number>): boolean {
   const entries = Array.from(counts.entries()).filter(([, count]) => count > 0)
   if (entries.length === 0) return true
@@ -80,6 +108,10 @@ function canCompleteStandardHand(counts: Map<string, number>): boolean {
   return false
 }
 
+/**
+ * 检测是否为标准胡牌牌型（4副面子+1对将牌，共14张）
+ * 遍历所有可能的将牌对子，验证剩余牌是否能组成4副面子
+ */
 function isStandardWinningHand(tiles: Tile[]): boolean {
   if (tiles.length !== 14) return false
   const counts = countTiles(tiles)
@@ -98,12 +130,20 @@ function isStandardWinningHand(tiles: Tile[]): boolean {
   return false
 }
 
+/**
+ * 检测七对子牌型（7个对子，共14张）
+ * 特殊牌型，不需要面子和将牌区分
+ */
 function isSevenPairs(tiles: Tile[]) {
   if (tiles.length !== 14) return false
   const counts = countTiles(tiles)
   return Array.from(counts.values()).every((count) => count === 2)
 }
 
+/**
+ * 检测国士无双（十三幺）牌型
+ * 需要包含所有13种幺九牌（1/9万筒索 + 7种字牌），其中一种成对
+ */
 function isThirteenOrphans(tiles: Tile[]): boolean {
   if (tiles.length !== 14) return false
   const required = [
@@ -122,6 +162,10 @@ function isThirteenOrphans(tiles: Tile[]): boolean {
   return required.every((t) => found.has(tileKey(t)))
 }
 
+/**
+ * 检测手牌中的役种
+ * 依次检测国士无双、七对子、断幺九、清一色、混一色、对对和、役牌等
+ */
 function detectYaku(tiles: Tile[], openMelds: Meld[], opts: AnalyzeOptions) {
   const yaku: string[] = []
   const counts = countTiles(tiles.concat(...openMelds.map(m => m.tiles)))
@@ -225,6 +269,11 @@ function detectYaku(tiles: Tile[], openMelds: Meld[], opts: AnalyzeOptions) {
   return Array.from(new Set(yaku))
 }
 
+/**
+ * 计算手牌的符数
+ * 基础符数20符，根据副露类型、是否门清、是否自摸、将牌类型等累加
+ * 七对子固定25符
+ */
 function calculateFu(tiles: Tile[], openMelds: Meld[], opts: AnalyzeOptions): number {
   let fu = 20
 
@@ -285,6 +334,11 @@ function calculateFu(tiles: Tile[], openMelds: Meld[], opts: AnalyzeOptions): nu
   return Math.ceil(fu / 10) * 10
 }
 
+/**
+ * 完整分析手牌
+ * 检测役种、计算番数和符数、判断听牌和胡牌状态
+ * 返回完整的手牌分析结果供UI展示
+ */
 export function analyzeHand(tiles: Tile[], openMelds: Meld[] = [], opts: AnalyzeOptions = {}): HandAnalysis {
   const yaku = detectYaku(tiles, openMelds, opts)
   const isWinning = isSevenPairs(tiles) || isStandardWinningHand(tiles) || isThirteenOrphans(tiles)

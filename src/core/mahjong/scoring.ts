@@ -1,3 +1,16 @@
+/**
+ * 日麻分数计算系统
+ * 负责根据番数和符数计算基础分、满贯判定、以及对局结算时的分数分配
+ */
+
+/**
+ * 分数计算结果接口
+ * han: 番数
+ * fu: 符数
+ * basePoints: 基础点数
+ * totalPoints: 总点数
+ * limit: 满贯级别（满贯/跳满/倍满/三倍满/役满）
+ */
 export interface ScoreResult {
   han: number
   fu: number
@@ -6,16 +19,37 @@ export interface ScoreResult {
   limit: LimitName
 }
 
+/**
+ * 将符数向上取整到十位（日麻规则）
+ */
 export function roundFu(fu: number): number {
   return Math.ceil(fu / 10) * 10
 }
 
+/**
+ * 计算基础点数
+ * 公式: 基础点数 = 符数 × 2^(番数+2)
+ * 例如: 30符4番 = 30 × 2^(4+2) = 30 × 64 = 1920点
+ */
 export function calculateBasePoints(han: number, fu: number): number {
   return Math.round(fu * Math.pow(2, han + 2))
 }
 
+/**
+ * 满贯级别名称类型
+ * none: 未满贯
+ * mangan: 满贯（5番或30符4番/40符3番及以上）
+ * haneman: 跳满（6-7番）
+ * baiman: 倍满（8-10番）
+ * sanbaiman: 三倍满（11-12番）
+ * yakuman: 役满（13番及以上或特殊役满牌型）
+ */
 export type LimitName = 'none' | 'mangan' | 'haneman' | 'baiman' | 'sanbaiman' | 'yakuman'
 
+/**
+ * 根据番数和符数判断满贯级别，返回对应的基础点数
+ * 满贯及以上使用固定点数计算，不再使用符数×2^(番数+2)公式
+ */
 export function computeLimitBase(han: number, fu: number): { limit: LimitName; basePoints: number } {
   const roundedFu = roundFu(fu)
   const rawBase = calculateBasePoints(han, roundedFu)
@@ -43,6 +77,12 @@ export interface PaymentResult {
   fu: number
 }
 
+/**
+ * 计算对局结算时的分数分配
+ * 自摸时: 所有闲家各支付对应分数给赢家
+ * 荣牌时: 仅点炮者支付分数给赢家
+ * 庄家支付/收取分数为闲家的2倍
+ */
 export function calculatePayments(han: number, fu: number, opts: { isTsumo: boolean; isDealer: boolean; playerCount?: number }): PaymentResult {
   const playerCount = opts.playerCount ?? 4
   const { limit, basePoints } = computeLimitBase(han, fu)
@@ -97,15 +137,25 @@ export function calculateScore(han: number, fu: number): ScoreResult {
   return { han, fu: roundedFu, basePoints, totalPoints, limit }
 }
 
+/**
+ * 役满牌型列表
+ * 包含日麻规则中的所有役满（Yakuman）级别牌型
+ */
 export const YAKUMAN_LIST = [
   '国士无双', '小四喜', '大四喜', '字一色', '绿一色', 
   '清老头', '四杠子', '四暗刻', '四暗刻单骑', '天和', '地和', '人和'
 ]
 
+/**
+ * 判断手牌中是否包含役满牌型
+ */
 export function isYakuman(yaku: string[]): boolean {
   return yaku.some(y => YAKUMAN_LIST.includes(y))
 }
 
+/**
+ * 将满贯级别转换为中文显示名称
+ */
 export function formatLimit(limit: LimitName): string {
   const names: Record<LimitName, string> = {
     none: '',

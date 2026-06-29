@@ -4,13 +4,17 @@ import Login from '../pages/Login.vue'
 import Recharge from '../pages/Recharge.vue'
 import MatchRoom from '../pages/MatchRoom.vue'
 import GameBoard from '../components/GameBoard.vue'
+import GamePlay from '../pages/GamePlay.vue'
+
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
   { path: '/login', name: 'Login', component: Login },
+
   { path: '/recharge', name: 'Recharge', component: Recharge },
   { path: '/match', name: 'MatchRoom', component: MatchRoom },
-  { path: '/game', name: 'GameBoard', component: GameBoard }
+  { path: '/game', name: 'GameBoard', component: GameBoard },
+  { path: '/play', name: 'GamePlay', component: GamePlay }
 ]
 
 export default createRouter({

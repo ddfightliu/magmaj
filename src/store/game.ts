@@ -1,3 +1,7 @@
+/**
+ * 游戏状态管理 Store
+ * 负责管理麻将对局的核心状态：玩家信息、回合状态、牌墙、吃碰杠、胡牌结算等
+ */
 import { defineStore } from 'pinia'
 import type { GameState, PlayerState, RoomSettings, PlayerWind } from '../types/game'
 import type { Tile } from '../types/mahjong'
@@ -5,6 +9,10 @@ import { createWall, dealHands, nextPlayerId, previousPlayerId, canPon, canKan, 
 import { analyzeHand } from '../core/mahjong'
 import { calculatePayments, roundFu, formatLimit, isYakuman } from '../core/mahjong/scoring'
 
+/**
+ * 创建初始玩家状态
+ * 初始化2名玩家（可扩展到3/4人），设置初始分数25000点，初始星韵能量3点
+ */
 function createInitialPlayers(): PlayerState[] {
   return [
     {
@@ -43,10 +51,17 @@ const initialSettings: RoomSettings = {
   prizePool: 0
 }
 
+/**
+ * 将数值向上取整到百位（日麻分数结算规则）
+ */
 function roundToHundred(value: number) {
   return Math.ceil(value / 100) * 100
 }
 
+/**
+ * 创建完整的麻将牌组（136张）
+ * 包含万、筒、索各1-9（各4张），字牌1-7（各4张）
+ */
 function createTileSet(): Tile[] {
   const tiles: Tile[] = []
   const suits = ['man', 'pin', 'sou'] as const
@@ -108,6 +123,14 @@ export const useGameStore = defineStore('game', {
   },
 
   actions: {
+    /**
+     * 开始新回合
+     * 1. 创建并洗牌墙
+     * 2. 清空玩家手牌、弃牌、副露
+     * 3. 发牌给所有玩家（庄家14张，闲家13张）
+     * 4. 提取14张王牌到死墙
+     * 5. 设置当前玩家为庄家，进入游戏阶段
+     */
     startRound() {
       const wall = createWall()
       const playerCount = this.settings.mode === '2p' ? 2 : this.settings.mode === '3p' ? 3 : 4
@@ -137,6 +160,11 @@ export const useGameStore = defineStore('game', {
       this.result = undefined
     },
 
+    /**
+     * 当前玩家摸牌
+     * 从牌墙顶部抽取一张牌加入手牌，自动分析手牌状态
+     * 如果牌墙已空，则判定为流局
+     */
     drawTile() {
       if (this.round.phase !== 'playing') return
       const tile = this.round.wall.shift()
@@ -153,6 +181,10 @@ export const useGameStore = defineStore('game', {
       this.analyzeCurrentHand()
     },
 
+    /**
+     * 当前玩家弃牌
+     * 从手牌中移除指定牌，加入弃牌堆，记录最近弃牌供其他玩家吃碰杠
+     */
     discardTile(tile: Tile) {
       const player = this.currentPlayer
       if (!player) return
@@ -170,7 +202,11 @@ export const useGameStore = defineStore('game', {
       this.round.currentPlayerId = nextPlayerId(this.round.currentPlayerId, playerCount)
     },
 
-    // Meld actions (skeleton implementations)
+    /**
+     * 碰牌操作
+     * 从手牌中移除2张相同的牌，与上家弃牌组成一副露（刻子）
+     * 碰牌后当前出牌权转移到碰牌玩家
+     */
     callPon(callerId: string, fromPlayerId: string, tile: Tile) {
       const caller = this.players.find((p) => p.id === callerId)
       if (!caller) return false
@@ -192,6 +228,11 @@ export const useGameStore = defineStore('game', {
       return true
     },
 
+    /**
+     * 杠牌操作
+     * 从手牌中移除3张相同的牌，与上家弃牌组成一副露（杠子）
+     * 杠牌后需要从牌墙尾部摸一张牌（岭上牌）
+     */
     callKan(callerId: string, fromPlayerId: string, tile: Tile) {
       const caller = this.players.find((p) => p.id === callerId)
       if (!caller) return false
@@ -213,6 +254,11 @@ export const useGameStore = defineStore('game', {
       return true
     },
 
+    /**
+     * 吃牌操作（仅能吃上家的弃牌）
+     * 从手牌中移除2张牌，与上家弃牌组成一副顺子
+     * 需要指定组成顺子的两张手牌
+     */
     callChi(callerId: string, fromPlayerId: string, tile: Tile, companionA: Tile, companionB: Tile) {
       const caller = this.players.find((p) => p.id === callerId)
       if (!caller) return false
@@ -260,6 +306,10 @@ export const useGameStore = defineStore('game', {
       return this.callChi(this.round.currentPlayerId, this.lastDiscarderId, this.round.lastDiscard, companionA, companionB)
     },
 
+    /**
+     * 应用分数变动
+     * 根据传入的分数变动记录，更新各玩家的总分
+     */
     applyScoreDeltas(deltas: Record<string, number>) {
       for (const player of this.players) {
         if (deltas[player.id]) {
@@ -268,6 +318,11 @@ export const useGameStore = defineStore('game', {
       }
     },
 
+    /**
+     * 自摸胡牌结算
+     * 计算自摸时的分数分配：庄家自摸时所有闲家各付2倍基础分
+     * 闲家自摸时庄家付2倍，其他闲家各付1倍
+     */
     declareTsumo() {
       if (this.round.phase !== 'playing') return
       const player = this.currentPlayer
@@ -308,6 +363,11 @@ export const useGameStore = defineStore('game', {
       this.result = { winnerId: player.id, score: winnerGain, yaku: this.round.analysis.yaku, type: 'tsumo' }
     },
 
+    /**
+     * 荣牌（点炮）胡牌结算
+     * 计算点炮时的分数：庄家点炮付6倍基础分，闲家点炮付4倍基础分
+     * 只有点炮者一人支付分数
+     */
     declareRon() {
       if (this.round.phase !== 'playing') return
       const player = this.currentPlayer
